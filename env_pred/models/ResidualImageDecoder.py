@@ -78,7 +78,7 @@ class ResidualDecoder(nn.Module):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Example usage with a larger network
-decoder = ResidualImageDecoder(block_sizes=[2, 2, 2, 2, 2]).to(device)
+decoder = ResidualDecoder(block_sizes=[2, 2, 2, 2, 2]).to(device)
 
 # Simulating encoder outputs based on the shapes you provided
 encoder_outputs = [
