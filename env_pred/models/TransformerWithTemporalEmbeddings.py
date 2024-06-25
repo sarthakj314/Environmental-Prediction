@@ -1,10 +1,5 @@
-import os
-import sys
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-from torch.autograd import Variable
 from torch.nn import TransformerEncoder, TransformerEncoderLayer, TransformerDecoderLayer, LayerNorm, _get_clones
 
 class TemporalQueryDecoder(nn.Module):
