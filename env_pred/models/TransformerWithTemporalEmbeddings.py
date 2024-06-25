@@ -92,6 +92,7 @@ class TransformerWithEmbeddings(nn.Module):
         
         return output
 
+'''
 # Example usage
 num_temporal_embeddings = 37
 num_positional_embeddings = 12
@@ -99,15 +100,16 @@ seq_len = 12
 batch_size = 16
 d_model = 512
 nhead = 8
-num_encoder_layers = 6
-num_decoder_layers = 6
+num_encoder_layers = 4
+num_decoder_layers = 4
 dim_feedforward = 2048
 
-model = TransformerWithEmbeddings(num_temporal_embeddings, num_positional_embeddings, 
-                                  d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward)
-src = torch.randn(batch_size, seq_len, d_model)
-temporal_input = torch.randint(0, num_temporal_embeddings, (batch_size, seq_len))
-tgt_temporal_input = torch.randint(0, num_temporal_embeddings, (batch_size, 1))
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+model = TransformerWithEmbeddings(num_temporal_embeddings, num_positional_embeddings, d_model, nhead, num_encoder_layers, num_decoder_layers, dim_feedforward).to(device)
+src = torch.randn(batch_size, seq_len, d_model).to(device)
+temporal_input = torch.randint(0, num_temporal_embeddings, (batch_size, seq_len)).to(device)
+tgt_temporal_input = torch.randint(0, num_temporal_embeddings, (batch_size, 1)).to(device)
 output = model(src, temporal_input, tgt_temporal_input)
 
 print("Output shape:", output.shape)
@@ -115,3 +117,4 @@ print("Output shape:", output.shape)
 # Number of parameters
 num_params = sum(p.numel() for p in model.parameters())
 print("Number of parameters:", num_params)
+'''
