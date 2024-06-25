@@ -25,29 +25,34 @@ class ResidualBlock(nn.Module):
         return out
 
 class ResidualEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self,
+                 final_output_size=512, # Number of output features
+                 block_sizes = [2, 2, 2, 1] # Number of residual blocks in each layer
+                 ):
         super(ResidualEncoder, self).__init__()
-        # Replace the single conv layer with kernel size 7 with three conv layers with kernel size 3
+        self.final_output_size = final_output_size
+        self.block_sizes = block_sizes
+
         self.conv1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(3, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1, bias=False)
+            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1, bias=False)
         )
-        self.bn1 = nn.BatchNorm2d(64)
+        self.bn1 = nn.BatchNorm2d(128)
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(64, 64, 2)
-        self.layer2 = self._make_layer(64, 128, 2, stride=2)
-        self.layer3 = self._make_layer(128, 256, 2, stride=2)
-        self.layer4 = self._make_layer(256, 512, 2, stride=2)
+        self.layer1 = self._make_layer(128, 128, block_sizes[0])
+        self.layer2 = self._make_layer(128, 256, block_sizes[1], stride=2)
+        self.layer3 = self._make_layer(256, 512, block_sizes[2], stride=2)
+        self.layer4 = self._make_layer(512, 1024, block_sizes[3], stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(512, 2048)
+        self.fc = nn.Linear(1024, self.final_output_size)
 
     def _make_layer(self, in_channels, out_channels, num_blocks, stride=1):
         layers = []
@@ -83,12 +88,18 @@ class ResidualEncoder(nn.Module):
 
         return x, intermediate_outputs
 
+'''
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 # Test the encoder
-encoder = ResidualEncoder()
-input_tensor = torch.randn(1, 3, 256, 256)  # Batch size 1, 3 channels, 256x256 image
+encoder = LargeResidualEncoder().to(device)
+input_tensor = torch.randn(10*12, 3, 256, 256).to(device)
 output, intermediate_outputs = encoder(input_tensor)
 
 print("Output shape:", output.shape)
 print("Number of intermediate outputs:", len(intermediate_outputs))
 for i, inter_output in enumerate(intermediate_outputs):
     print(f"Intermediate output {i+1} shape:", inter_output.shape)
+
+print("Number of parameters:", sum(p.numel() for p in encoder.parameters() if p.requires_grad))
+'''
