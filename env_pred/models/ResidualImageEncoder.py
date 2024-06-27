@@ -26,33 +26,35 @@ class ResidualBlock(nn.Module):
 
 class ResidualEncoder(nn.Module):
     def __init__(self,
-                 final_output_size=512, # Number of output features
-                 block_sizes = [2, 2, 2, 1] # Number of residual blocks in each layer
+                 final_output_size = 512, # Number of output features
+                 block_sizes = [2, 2, 2, 1], # Number of residual blocks in each layer
+                 channel_sizes = [128, 128, 256, 512, 1024] # Number of channels in each layer
                  ):
         super(ResidualEncoder, self).__init__()
         self.final_output_size = final_output_size
         self.block_sizes = block_sizes
+        self.channel_sizes = channel_sizes
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(3, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(3, channel_sizes[0], kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(channel_sizes[0]),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(128),
+            nn.Conv2d(channel_sizes[0], channel_sizes[0], kernel_size=3, stride=1, padding=1, bias=False),
+            nn.BatchNorm2d(channel_sizes[0]),
             nn.ReLU(inplace=True),
-            nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1, bias=False)
+            nn.Conv2d(channel_sizes[0], channel_sizes[0], kernel_size=3, stride=2, padding=1, bias=False)
         )
-        self.bn1 = nn.BatchNorm2d(128)
+        self.bn1 = nn.BatchNorm2d(channel_sizes[0])
         self.relu = nn.ReLU(inplace=True)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-        self.layer1 = self._make_layer(128, 128, block_sizes[0])
-        self.layer2 = self._make_layer(128, 256, block_sizes[1], stride=2)
-        self.layer3 = self._make_layer(256, 512, block_sizes[2], stride=2)
-        self.layer4 = self._make_layer(512, 1024, block_sizes[3], stride=2)
+        self.layer1 = self._make_layer(channel_sizes[0], channel_sizes[1], block_sizes[0])
+        self.layer2 = self._make_layer(channel_sizes[1], channel_sizes[2], block_sizes[1], stride=2)
+        self.layer3 = self._make_layer(channel_sizes[2], channel_sizes[3], block_sizes[2], stride=2)
+        self.layer4 = self._make_layer(channel_sizes[3], channel_sizes[4], block_sizes[3], stride=2)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(1024, self.final_output_size)
+        self.fc = nn.Linear(channel_sizes[-1], self.final_output_size)
 
     def _make_layer(self, in_channels, out_channels, num_blocks, stride=1):
         layers = []
@@ -62,6 +64,10 @@ class ResidualEncoder(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
+        if len(x.shape) == 4:
+            print("INPUT TENSOR TO IMAGE ENCODER ALREADY RESHAPED")
+        else:
+            x = x.view(-1, x.shape[-3], x.shape[-2], x.shape[-1])
         intermediate_outputs = []
 
         x = self.conv1(x)

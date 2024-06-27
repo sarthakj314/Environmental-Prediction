@@ -75,6 +75,7 @@ class ResidualDecoder(nn.Module):
         
         return x
 
+'''
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Example usage with a larger network
@@ -96,3 +97,4 @@ print("Output image shape:", output_image.shape)
 # Number of parameters
 num_params = sum(p.numel() for p in decoder.parameters())
 print("Number of parameters:", num_params)
+'''
