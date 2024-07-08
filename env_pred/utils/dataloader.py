@@ -144,10 +144,17 @@ class Transformer_Dataset(Dataset):
         mask = torch.tensor(mask)
         return past_images.type(torch.FloatTensor), GT, dates, mask
 
+
 class Pix2PixHD_Dataset(Dataset):
     def __init__(self, valid_indexes_path, data_directory, dates_path, data_cap = None):
-        self.indexes = np.load(valid_indexes_path)
-        self.sent2 = SentinelDataset(self.indexes, data_directory, dates_path)
+        self.tmp_indexes = np.load(valid_indexes_path)
+        self.sent2 = SentinelDataset(self.tmp_indexes, data_directory, dates_path)
+        self.indexes = []
+        for idx in self.tmp_indexes:
+            _, date, coords = self.sent2.getitem(idx)
+            if self.sent2.get_past_month(date, coords, 1) != -1:
+                self.indexes.append(idx)
+        self.indexes = np.array(self.indexes)
         if data_cap is None:
             self.len = len(self.indexes)
         else:
@@ -157,9 +164,25 @@ class Pix2PixHD_Dataset(Dataset):
     def __len__(self):
         return self.len
     
-    def __getitem__(self, idx, ):
-        # Return GT, 
+    def process(self, img):
+        img = img.squeeze()[1:4][::-1].transpose(1, 2, 0)
+        percentile = np.percentile(img, [5, 95])
+        img = np.clip(img, percentile[0], percentile[1])
+        img = (img - percentile[0]) / (percentile[1] - percentile[0])
+        img = T.ToTensor()(img)
+        return img
+    
+    def __getitem__(self, idx, delta_time = 1):
+        # Return GT, input_image, dates
         idx = self.indexes[idx]
+        GT, date, coords = self.sent2.getitem(idx)
+        GT = self.process(GT)
+        past_idx = self.sent2.get_past_month(date, coords, delta_time)
+        if past_idx == -1:
+            return None
+        input_image = self.process(self.sent2.get_image(past_idx))
+        date = torch.tensor(self.sent2.get_date(past_idx))
+        return input_image, GT, date
 
 
 '''
