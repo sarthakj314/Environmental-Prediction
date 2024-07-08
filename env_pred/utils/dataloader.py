@@ -144,6 +144,24 @@ class Transformer_Dataset(Dataset):
         mask = torch.tensor(mask)
         return past_images.type(torch.FloatTensor), GT, dates, mask
 
+class Pix2PixHD_Dataset(Dataset):
+    def __init__(self, valid_indexes_path, data_directory, dates_path, data_cap = None):
+        self.indexes = np.load(valid_indexes_path)
+        self.sent2 = SentinelDataset(self.indexes, data_directory, dates_path)
+        if data_cap is None:
+            self.len = len(self.indexes)
+        else:
+            self.len = min(len(self.indexes), data_cap)
+        print('Total Data (after min):', self.len)
+
+    def __len__(self):
+        return self.len
+    
+    def __getitem__(self, idx, ):
+        # Return GT, 
+        idx = self.indexes[idx]
+
+
 '''
 SentinelDataset = SentinelDataset(config['data_directory'], config['dates_path'])
 valset = Dataset(SentinelDataset, config['val_data_path'], total_data = 10)
