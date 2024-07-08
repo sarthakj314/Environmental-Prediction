@@ -1,2 +1,6 @@
 *.png
 *.npy
+*.pth
+*.gif
+*.jpg
+**/runs/
