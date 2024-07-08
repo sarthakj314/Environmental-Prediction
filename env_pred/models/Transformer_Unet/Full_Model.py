@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from ResidualImageDecoder import ResidualDecoder
 from ResidualImageEncoder import ResidualEncoder
-from AttentionBasedFusion import TemporalCompressor
+from ConvolutionalBasedFusion import TemporalCompressor
 from TransformerWithTemporalEmbeddings import TransformerWithEmbeddings
 
 '''
