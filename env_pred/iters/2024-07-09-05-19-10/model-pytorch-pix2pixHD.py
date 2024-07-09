@@ -3,7 +3,6 @@ import sys
 import time
 import yaml
 import torch
-import argparse
 import imageio.v2 as imageio
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -31,11 +30,6 @@ import_library(cwd)
 from Pix2PixHD import GlobalGenerator, MultiscaleDiscriminator, VGG19
 from dataloader import Pix2PixHD_Dataset
 from disc import disc_text, disc_image
-
-argparser = argparse.ArgumentParser()
-argparser.add_argument('--amp', action='store_true', help='Use Automatic Mixed Precision')
-argparser.add_argument('--description', '-d', type=str, help='Description of the run')
-args = argparser.parse_args()
 
 def copy_files_recursively(src, dst):
     for item in os.listdir(src):
@@ -352,19 +346,11 @@ def main():
     
     trainloader, valloader = setup_data(config)
     generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG = setup_model(device, config)
-
-    if args.description:
-        with open(os.path.join(run_dir, 'results.txt'), 'a') as f:
-            f.write(f'Description: {args.description}\n')
-        disc_text(f'Description: {args.description}', 'train1')
-
+    
     log_model_params(generator, run_dir, name='Generator')
     log_model_params(discriminator, run_dir, name='Discriminator')
-
-    if args.amp:
-        train_amp(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device) 
-    else:
-        train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device)
+    
+    train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device)
 
 if __name__ == "__main__":
     main()

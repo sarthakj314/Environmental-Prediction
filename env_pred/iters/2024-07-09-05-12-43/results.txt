@@ -1,0 +1,13 @@
+```
+ Generator Model Params : 31434499
+```
+```
+ Discriminator Model Params : 179137731
+```
+[  0, 0] : Loss_G 28.8777, Loss_D 7.0696
+[  0, 1] : Loss_G 2.4996, Loss_D 0.0168
+[  0, 2] : Loss_G 33.3264, Loss_D 1.8271
+[  0, 3] : Loss_G 15.8193, Loss_D 0.2540
+[  0, 4] : Loss_G 7.8197, Loss_D 0.0073
+[  0, 5] : Loss_G 16.6895, Loss_D 0.1591
+[  0, 6] : Loss_G 11.4746, Loss_D 0.0552

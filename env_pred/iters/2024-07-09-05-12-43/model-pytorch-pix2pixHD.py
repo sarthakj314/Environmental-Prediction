@@ -3,7 +3,6 @@ import sys
 import time
 import yaml
 import torch
-import argparse
 import imageio.v2 as imageio
 import torch.nn as nn
 import matplotlib.pyplot as plt
@@ -31,11 +30,6 @@ import_library(cwd)
 from Pix2PixHD import GlobalGenerator, MultiscaleDiscriminator, VGG19
 from dataloader import Pix2PixHD_Dataset
 from disc import disc_text, disc_image
-
-argparser = argparse.ArgumentParser()
-argparser.add_argument('--amp', action='store_true', help='Use Automatic Mixed Precision')
-argparser.add_argument('--description', '-d', type=str, help='Description of the run')
-args = argparser.parse_args()
 
 def copy_files_recursively(src, dst):
     for item in os.listdir(src):
@@ -137,7 +131,7 @@ def display_progress_image(model, name, current_epoch, batch_idx, loader, run_di
     
     disc_image(frame_path, 'train1')
 
-def train_amp(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device):
+def train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device):
     writer = SummaryWriter(log_dir=os.path.join(run_dir, 'runs'))
     display_progress_image(generator, 'init', -1, -1, trainloader, run_dir, device)
 
@@ -244,105 +238,6 @@ def train_amp(generator, discriminator, vgg, optimizerG, optimizerD, criterion_G
 
     writer.close()
 
-def train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device):
-    writer = SummaryWriter(log_dir=os.path.join(run_dir, 'runs'))
-    display_progress_image(generator, 'init', -1, -1, trainloader, run_dir, device)
-
-    generator.train()
-    discriminator.train()
-
-    for epoch in range(config['num_epochs']):
-        if epoch == 3:
-            config['prints_per_epoch'] //= 4
-
-        total_num = 0
-        current_loss_G = 0.0
-        current_loss_D = 0.0
-        num_iters = len(trainloader)
-        screen = max(num_iters // config['prints_per_epoch'], 1)
-
-        for i, (x, GT, dates) in tqdm(enumerate(trainloader), total=num_iters, leave=False):
-            if torch.isnan(x).any() or torch.isnan(GT).any():
-                print(f"NaN found in input data at epoch {epoch}, iteration {i}")
-                continue
-
-            total_num += x.shape[0]
-            x, GT, dates = x.to(device), GT.to(device), dates.to(device)
-
-            # Train Discriminator
-            optimizerD.zero_grad()
-            fake_images = generator(x)
-            real_pair = torch.cat((x, GT), 1)
-            fake_pair = torch.cat((x, fake_images), 1)
-            pred_real = discriminator(real_pair)
-            pred_fake = discriminator(fake_pair.detach())
-
-            loss_D_real = 0
-            loss_D_fake = 0
-            for pred_r, pred_f in zip(pred_real, pred_fake):
-                loss_D_real += criterion_GAN(pred_r, torch.ones_like(pred_r))
-                loss_D_fake += criterion_GAN(pred_f, torch.zeros_like(pred_f))
-            loss_D = (loss_D_real + loss_D_fake) * 0.5
-
-            loss_D.backward()
-            optimizerD.step()
-
-            # Train Generator
-            optimizerG.zero_grad()
-            fake_images = generator(x)
-            fake_pair = torch.cat((x, fake_images), 1)
-            pred_fake = discriminator(fake_pair)
-
-            loss_G_GAN = 0
-            for pred_f in pred_fake:
-                loss_G_GAN += criterion_GAN(pred_f, torch.ones_like(pred_f))
-
-            # Feature matching loss
-            loss_G_FM = 0
-            feat_weights = 4.0 / (config['n_layers_D'] + 1)
-            D_weights = 1.0 / config['num_D']
-            for ii in range(config['num_D']):
-                for jj in range(len(pred_fake[ii]) - 1):
-                    loss_G_FM += D_weights * feat_weights * criterion_FM(pred_fake[ii][jj], pred_real[ii][jj].detach())
-
-            # VGG perceptual loss
-            loss_G_VGG = 0
-            real_features = vgg(GT)
-            fake_features = vgg(fake_images)
-            for real_feat, fake_feat in zip(real_features, fake_features):
-                loss_G_VGG += criterion_VGG(fake_feat, real_feat.detach())
-
-            loss_G = loss_G_GAN + config['lambda_feat'] * loss_G_FM + config['lambda_vgg'] * loss_G_VGG
-
-            loss_G.backward()
-            optimizerG.step()
-
-            current_loss_G += loss_G.item()
-            current_loss_D += loss_D.item()
-
-            if (i + 1) % screen == 0:
-                avg_loss_G = current_loss_G / total_num
-                avg_loss_D = current_loss_D / total_num
-                output = f'[{epoch:3d}, {i//screen}] : Loss_G {avg_loss_G:.4f}, Loss_D {avg_loss_D:.4f}'
-                print(output)
-                disc_text(output, 'train1')
-                with open(os.path.join(run_dir, 'results.txt'), 'a') as f:
-                    f.write(output + '\n')
-                writer.add_scalar('Loss/train_G', avg_loss_G, epoch * num_iters + i)
-                writer.add_scalar('Loss/train_D', avg_loss_D, epoch * num_iters + i)
-                display_progress_image(generator, f'epoch{epoch}-{i//screen}', epoch, i//screen, trainloader, run_dir, device)
-                generator.train()
-                discriminator.train()
-                current_loss_G = 0
-                current_loss_D = 0
-                total_num = 0
-
-        torch.save(generator.state_dict(), os.path.join(run_dir, 'params_generator.pth'))
-        torch.save(discriminator.state_dict(), os.path.join(run_dir, 'params_discriminator.pth'))
-        display_progress_image(generator, f'final_epoch{epoch}', epoch, 0, valloader, run_dir, device)
-
-    writer.close()
-
 def main():
     run_dir = setup_run()
     config = load_config(os.path.join(run_dir, 'utils', 'config.yaml'))
@@ -352,19 +247,11 @@ def main():
     
     trainloader, valloader = setup_data(config)
     generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG = setup_model(device, config)
-
-    if args.description:
-        with open(os.path.join(run_dir, 'results.txt'), 'a') as f:
-            f.write(f'Description: {args.description}\n')
-        disc_text(f'Description: {args.description}', 'train1')
-
+    
     log_model_params(generator, run_dir, name='Generator')
     log_model_params(discriminator, run_dir, name='Discriminator')
-
-    if args.amp:
-        train_amp(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device) 
-    else:
-        train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device)
+    
+    train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, criterion_FM, criterion_VGG, trainloader, valloader, config, run_dir, device)
 
 if __name__ == "__main__":
     main()
