@@ -7,14 +7,22 @@ test_data_path: "/home/sarthakj/code/AI/projects/summers/summer_2024/AFRL/env_pr
 num_temporal_embeddings: 12
 num_positional_embeddings: 37
 num_epochs: 1000
-batch_size: 128
+batch_size: 32
 display_step: 1
 prints_per_epoch: 20
-accumulation_steps: 1
+accumulation_steps: 4
 learning_rate: 0.0001
 learning_rate_G: 0.002
 learning_rate_D: 0.002
 lambda_L1: 100
+month_dist: 12
+
+input_nc: 3
+output_nc: 3
+ngf: 64
+ndf: 64
+n_layers_D: 3
+num_D: 3
 lambda_feat: 10
 lambda_vgg: 10
-month_dist: 12
+beta1: 0.5

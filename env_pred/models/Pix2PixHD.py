@@ -1,3 +1,4 @@
+import yaml
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -130,9 +131,19 @@ class Pix2PixHD(nn.Module):
         return self.generator(input)
 
 if __name__ == '__main__':
+    config = yaml.safe_load(open('../utils/config.yaml'))    
+
+    generator = GlobalGenerator(config['input_nc'], config['output_nc'], config['ngf'])
+    discriminator = MultiscaleDiscriminator(config['input_nc'] + config['output_nc'], config['ndf'], n_layers=3, num_D=3)
+
+    print('Number of generator parameters:', sum(p.numel() for p in generator.parameters() if p.requires_grad))
+    print('Number of discriminator parameters:', sum(p.numel() for p in discriminator.parameters() if p.requires_grad))
+
+    '''
     model = Pix2PixHD(3, 3)
     print('Number of generator parameters:', sum(p.numel() for p in model.parameters() if p.requires_grad))
     x = torch.randn((5, 3, 256, 256))
     print("Input shape:", x.shape)
     pred = model(x)
     print("Output shape:", pred.shape)
+    '''
