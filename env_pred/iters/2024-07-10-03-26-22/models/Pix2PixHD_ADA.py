@@ -141,7 +141,7 @@ class MultiscaleDiscriminator(nn.Module):
 class VGG19(nn.Module):
     def __init__(self):
         super(VGG19, self).__init__()
-        vgg_pretrained_features = models.vgg19(weights=models.VGG19_Weights.DEFAULT).features
+        vgg_pretrained_features = models.vgg19(pretrained=True).features
         self.slice1 = nn.Sequential()
         self.slice2 = nn.Sequential()
         self.slice3 = nn.Sequential()

@@ -1,0 +1,11 @@
+Description: Using a new variable months to specify how far into the future the Pix2PixHD model is to predict. Then its effect on the model is ensured through adaptive instance normalization.
+```
+ Generator Model Params : 31464707
+```
+```
+ Discriminator Model Params : 179159235
+```
+[  0, 0] : Loss_G 4.0815, Loss_D 0.0981
+[  0, 1] : Loss_G 3.2278, Loss_D 0.0205
+[  0, 2] : Loss_G 5.4744, Loss_D 0.0180
+[  0, 3] : Loss_G 5.4583, Loss_D 0.0163
