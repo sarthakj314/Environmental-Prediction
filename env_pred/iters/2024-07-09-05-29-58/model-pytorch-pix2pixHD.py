@@ -69,9 +69,9 @@ def setup_device():
 
 def setup_data(config):
     valset = Pix2PixHD_Dataset(config['val_data_path'], config['data_directory'], config['dates_path'], config['month_dist'], data_cap=None)
-    valloader = DataLoader(valset, batch_size=1, shuffle=True, num_workers=3)
+    valloader = DataLoader(valset, batch_size=1, shuffle=True, num_workers=2)
     trainset = Pix2PixHD_Dataset(config['train_data_path'], config['data_directory'], config['dates_path'], config['month_dist'], data_cap=None)
-    trainloader = DataLoader(trainset, batch_size=config['batch_size'], shuffle=True, num_workers=3)
+    trainloader = DataLoader(trainset, batch_size=config['batch_size'], shuffle=True, num_workers=2)
     return trainloader, valloader
 
 def setup_model(device, config):
