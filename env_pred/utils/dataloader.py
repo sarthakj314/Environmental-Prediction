@@ -190,6 +190,54 @@ class Pix2PixHD_Dataset(Dataset):
         date = self.sent2.date_to_idx(self.sent2.get_date(past_idx))
         return input_image, GT, date
 
+
+class Pix2PixHD_ADA_Dataset(Dataset):
+    def __init__(self, valid_indexes_path, data_directory, dates_path, month_limit, data_cap = None):
+        self.tmp_indexes = np.load(valid_indexes_path)
+        self.sent2 = SentinelDataset(self.tmp_indexes, data_directory, dates_path)
+        self.month_limit = month_limit
+        self.indexes = []
+        for idx in self.tmp_indexes:
+            valid_image = False
+            for month_dist in range(1, month_limit+1):
+                _, date, coords = self.sent2.getitem(idx, return_image=False)
+                if self.sent2.get_past_month(date, coords, month_dist) != -1:
+                    valid_image = True
+                    break
+            if valid_image:
+                self.indexes.append(idx)
+        self.indexes = np.array(self.indexes)
+        if data_cap is None:
+            self.len = len(self.indexes)
+        else:
+            self.len = min(len(self.indexes), data_cap)
+        print('Total Data (after min):', self.len)
+
+    def __len__(self):
+        return self.len
+    
+    def process(self, img):
+        img = img.squeeze()[1:4][::-1].transpose(1, 2, 0)
+        percentile = np.percentile(img, [5, 95])
+        img = np.clip(img, percentile[0], percentile[1])
+        img = (img - percentile[0]) / (percentile[1] - percentile[0])
+        img = T.ToTensor()(img)
+        return img
+    
+    def __getitem__(self, idx):
+        # Return GT, input_image, dates
+        idx = self.indexes[idx]
+        GT, date, coords = self.sent2.getitem(idx)
+        GT = self.process(GT)
+        valid_past_idx = [(month_dist, self.sent2.get_past_month(date, coords, month_dist)) for month_dist in range(1, self.month_limit+1)]
+        valid_past_idx = [idx for idx in valid_past_idx if idx[-1] != -1]
+        if len(valid_past_idx) == 0:
+            return None
+        month_diff, past_idx = np.random.choice(valid_past_idx)
+        input_image = self.process(self.sent2.get_image(past_idx))
+        date = self.sent2.date_to_idx(self.sent2.get_date(past_idx))
+        return input_image, GT, date, month_diff
+
 if __name__ == '__main__':
     valset = Pix2PixHD_Dataset(config['val_data_path'], config['data_directory'], config['dates_path'], data_cap = None)
     valloader = DataLoader(valset, batch_size=1, shuffle=True, num_workers=2)
