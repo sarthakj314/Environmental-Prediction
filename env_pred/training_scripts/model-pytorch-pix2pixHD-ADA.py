@@ -28,8 +28,9 @@ def import_library(cwd):
 cwd = os.getcwd()
 import_library(cwd)
 
-from Pix2PixHD import GlobalGenerator, MultiscaleDiscriminator, VGG19
-from dataloader import Pix2PixHD_Dataset
+import Pix2PixHD_ADA as MODEL
+# from Pix2PixHD_ADA import GlobalGenerator, MultiscaleDiscriminator, VGG19
+from dataloader import Pix2PixHD_ADA_Dataset
 from disc import disc_text, disc_image
 
 argparser = argparse.ArgumentParser()
@@ -68,16 +69,16 @@ def setup_device():
     return device
 
 def setup_data(config):
-    valset = Pix2PixHD_Dataset(config['val_data_path'], config['data_directory'], config['dates_path'], config['month_dist'], data_cap=None)
+    valset = Pix2PixHD_ADA_Dataset(config['val_data_path'], config['data_directory'], config['dates_path'], config['month_limit'], data_cap=None)
     valloader = DataLoader(valset, batch_size=1, shuffle=True, num_workers=3)
-    trainset = Pix2PixHD_Dataset(config['train_data_path'], config['data_directory'], config['dates_path'], config['month_dist'], data_cap=None)
+    trainset = Pix2PixHD_ADA_Dataset(config['train_data_path'], config['data_directory'], config['dates_path'], config['month_limit'], data_cap=None)
     trainloader = DataLoader(trainset, batch_size=config['batch_size'], shuffle=True, num_workers=3)
     return trainloader, valloader
 
 def setup_model(device, config):
-    generator = GlobalGenerator(config['input_nc'], config['output_nc'], config['ngf']).to(device)
-    discriminator = MultiscaleDiscriminator(config['input_nc'] + config['output_nc'], config['ndf'], n_layers=3, num_D=3).to(device)
-    vgg = VGG19().to(device)
+    generator = MODEL.GlobalGenerator(config['input_nc'], config['output_nc'], config['ngf']).to(device)
+    discriminator = MODEL.MultiscaleDiscriminator(config['input_nc'] + config['output_nc'], config['ndf'], n_layers=3, num_D=3).to(device)
+    vgg = MODEL.VGG19().to(device)
     
     optimizerG = torch.optim.Adam(generator.parameters(), lr=config['learning_rate_G'], betas=(config['beta1'], 0.999))
     optimizerD = torch.optim.Adam(discriminator.parameters(), lr=config['learning_rate_D'], betas=(config['beta1'], 0.999))
@@ -98,10 +99,11 @@ def log_model_params(model, run_dir, name = ''):
 
 def display_progress_image(model, name, current_epoch, batch_idx, loader, run_dir, device, figsize=(12,4)):
     model.eval()
-    x, GT, dates = next(iter(loader))
-    x, GT, dates = x.to(device), GT.to(device), dates.to(device)
+    x, GT, dates, month_diffs = next(iter(loader))
+    x, GT, dates, month_diffs = x.to(device), GT.to(device), dates.to(device), month_diffs.to(device)
+
     with torch.no_grad():
-        out = model(x)
+        out = model(x, month_diffs)
     
     viz_dir = os.path.join(run_dir, 'outputs')
     os.makedirs(viz_dir, exist_ok=True)
@@ -157,22 +159,22 @@ def train_amp(generator, discriminator, vgg, optimizerG, optimizerD, criterion_G
         num_iters = len(trainloader)
         screen = max(num_iters // config['prints_per_epoch'], 1)
 
-        for i, (x, GT, dates) in tqdm(enumerate(trainloader), total=num_iters, leave=False):
+        for i, (x, GT, dates, month_diffs) in tqdm(enumerate(trainloader), total=num_iters, leave=False):
             if torch.isnan(x).any() or torch.isnan(GT).any():
                 print(f"NaN found in input data at epoch {epoch}, iteration {i}")
                 continue
 
             total_num += x.shape[0]
-            x, GT, dates = x.to(device), GT.to(device), dates.to(device)
+            x, GT, dates, month_diffs = x.to(device), GT.to(device), dates.to(device), month_diffs.to(device)
 
             # Train Discriminator
             optimizerD.zero_grad()
             with amp.autocast():
-                fake_images = generator(x)
+                fake_images = generator(x, month_diffs)
                 real_pair = torch.cat((x, GT), 1)
                 fake_pair = torch.cat((x, fake_images), 1)
-                pred_real = discriminator(real_pair)
-                pred_fake = discriminator(fake_pair.detach())
+                pred_real = discriminator(real_pair, month_diffs)
+                pred_fake = discriminator(fake_pair.detach(), month_diffs.detach())
 
                 loss_D_real = 0
                 loss_D_fake = 0
@@ -187,9 +189,9 @@ def train_amp(generator, discriminator, vgg, optimizerG, optimizerD, criterion_G
             # Train Generator
             optimizerG.zero_grad()
             with amp.autocast():
-                fake_images = generator(x)
+                fake_images = generator(x, month_diffs)
                 fake_pair = torch.cat((x, fake_images), 1)
-                pred_fake = discriminator(fake_pair)
+                pred_fake = discriminator(fake_pair, month_diffs)
 
                 loss_G_GAN = 0
                 for pred_f in pred_fake:
@@ -261,21 +263,21 @@ def train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, 
         num_iters = len(trainloader)
         screen = max(num_iters // config['prints_per_epoch'], 1)
 
-        for i, (x, GT, dates) in tqdm(enumerate(trainloader), total=num_iters, leave=False):
+        for i, (x, GT, dates, month_diffs) in tqdm(enumerate(trainloader), total=num_iters, leave=False):
             if torch.isnan(x).any() or torch.isnan(GT).any():
                 print(f"NaN found in input data at epoch {epoch}, iteration {i}")
                 continue
 
             total_num += x.shape[0]
-            x, GT, dates = x.to(device), GT.to(device), dates.to(device)
+            x, GT, dates, month_diffs = x.to(device), GT.to(device), dates.to(device), month_diffs.to(device)
 
             # Train Discriminator
             optimizerD.zero_grad()
-            fake_images = generator(x)
+            fake_images = generator(x, month_diffs)
             real_pair = torch.cat((x, GT), 1)
             fake_pair = torch.cat((x, fake_images), 1)
-            pred_real = discriminator(real_pair)
-            pred_fake = discriminator(fake_pair.detach())
+            pred_real = discriminator(real_pair, month_diffs)
+            pred_fake = discriminator(fake_pair.detach(), month_diffs.detach())
 
             loss_D_real = 0
             loss_D_fake = 0
@@ -289,9 +291,9 @@ def train(generator, discriminator, vgg, optimizerG, optimizerD, criterion_GAN, 
 
             # Train Generator
             optimizerG.zero_grad()
-            fake_images = generator(x)
+            fake_images = generator(x, month_diffs)
             fake_pair = torch.cat((x, fake_images), 1)
-            pred_fake = discriminator(fake_pair)
+            pred_fake = discriminator(fake_pair, month_diffs)
 
             loss_G_GAN = 0
             for pred_f in pred_fake:

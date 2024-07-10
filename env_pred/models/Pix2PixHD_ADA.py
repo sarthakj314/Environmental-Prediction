@@ -181,21 +181,27 @@ class Pix2PixHD(nn.Module):
         return self.generator(input, months)
 
 if __name__ == '__main__':
-    config = yaml.safe_load(open('../utils/config.yaml'))    
+    config = yaml.safe_load(open('utils/config.yaml'))    
 
-    generator = GlobalGenerator(config['input_nc'], config['output_nc'], config['ngf'])
-    discriminator = MultiscaleDiscriminator(config['input_nc'] + config['output_nc'], config['ndf'], n_layers=3, num_D=3)
+    batch_size = 40
+    use_cuda = True
+    if use_cuda and torch.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+
+    generator = GlobalGenerator(config['input_nc'], config['output_nc'], config['ngf']).to(device)
+    discriminator = MultiscaleDiscriminator(config['input_nc'] + config['output_nc'], config['ndf'], n_layers=3, num_D=3).to(device)
 
     print('Number of generator parameters:', sum(p.numel() for p in generator.parameters() if p.requires_grad))
     print('Number of discriminator parameters:', sum(p.numel() for p in discriminator.parameters() if p.requires_grad))
 
-    '''
-    model = Pix2PixHD(3, 3)
-    print('Number of model parameters:', sum(p.numel() for p in model.parameters() if p.requires_grad))
-    x = torch.randn((5, 3, 256, 256))
-    months = torch.randint(1, 13, (5, 1)).float()  # Random months between 1 and 12
-    print("Input shape:", x.shape)
-    print("Months shape:", months.shape)
-    pred = model(x, months)
-    print("Output shape:", pred.shape)
-    '''
+
+    x = torch.randn((batch_size, 3, 256, 256)).to(device)
+    months = torch.randint(1, 13, (batch_size,)).float().to(device)
+    fake_images = generator(x, months)
+    print("Output shape:", fake_images.shape)
+
+    fake_pair = torch.cat((x, fake_images), 1)
+    disc_pred = discriminator(fake_pair, months)
+    print("Discriminator output shape:", [d.shape for d in disc_pred])

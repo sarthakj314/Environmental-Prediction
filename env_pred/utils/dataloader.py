@@ -2,6 +2,7 @@ import os
 import sys
 import yaml
 import torch
+import random
 import datetime
 import numpy as np
 import torchvision.transforms as T
@@ -21,6 +22,8 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 with open('utils/config.yaml', 'r') as file:
     config = yaml.safe_load(file)
 
+random.seed(config['seed'])
+np.random.seed(config['seed'])
 torch.manual_seed(config['seed'])
 
 '''
@@ -233,9 +236,10 @@ class Pix2PixHD_ADA_Dataset(Dataset):
         valid_past_idx = [idx for idx in valid_past_idx if idx[-1] != -1]
         if len(valid_past_idx) == 0:
             return None
-        month_diff, past_idx = np.random.choice(valid_past_idx)
+        month_diff, past_idx = random.choice(valid_past_idx)
         input_image = self.process(self.sent2.get_image(past_idx))
         date = self.sent2.date_to_idx(self.sent2.get_date(past_idx))
+        month_diff = torch.tensor(month_diff, dtype=torch.float32)
         return input_image, GT, date, month_diff
 
 if __name__ == '__main__':
